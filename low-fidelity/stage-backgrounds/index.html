@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KeyClip: Stage background prototypes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital@0;1&display=swap">
+<style>@font-face{font-family:Funnel;src:url(../landing-revamp/FunnelDisplay.ttf);font-weight:300 800}:root{--font-display:Funnel;--font-serif:"Libre Baskerville"}</style>
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="demo.css">
+<style>
+/* Prototype controls. Everything below them is the real site. */
+.proto>*{flex:none}.proto{height:48px;display:flex;align-items:center;gap:6px;padding:0 12px;background:#000;border-bottom:1px solid #ffffff1f;font-size:14px;color:#c9c9ce;white-space:nowrap;overflow-x:auto}
+.proto button{padding:7px 9px;border-radius:9px}
+.proto button:hover{background:#1f1f20}
+.proto button[aria-pressed=true]{background:#fff;color:#000;font-weight:600}
+.proto hr{width:1px;height:20px;border:0;background:#ffffff2e;margin:0 4px;flex:none}
+.proto label{display:flex;align-items:center;gap:8px}
+.proto [hidden]{display:none}.proto input{width:64px;accent-color:#ffd000}
+.proto .tip{flex:1;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;color:#9c9ca1}
+body{display:flex;flex-direction:column}
+.bare .proto{display:none!important}
+.proto{flex:none}
+.proto [hidden],.proto[hidden]{display:none}
+.proto.two{height:auto;display:block;padding:4px 12px 8px;overflow:visible}
+.proto.two[hidden]{display:none}
+.line{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;min-height:38px}
+#knobs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px 22px}
+#knobs label{display:grid;grid-template-columns:100px 1fr 44px;gap:8px;font-size:13px}
+#knobs input{width:100%}#knobs output{text-align:right;color:#fff;font-variant-numeric:tabular-nums}
+.site{flex:1;min-height:0;height:auto}
+.left h1{margin-top:0}
+.list{margin-top:22px}
+.item{padding:8px 12px}
+.backgrounds{background:#111 center/cover}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage .view{z-index:2}
+</style>
+<div class="proto" role="toolbar" aria-label="Prototype controls">
+  <span id="variants"></span><hr><span id="photos"></span><hr>
+  <span id="behind"></span><hr id="bhr">
+  <label id="amtbox">Strength <input id="amt" type="range" min="0.2" max="2" step="0.05" value="1"></label>
+  <span class="tip" id="tip"></span>
+</div>
+<div class="proto two" id="glass" role="toolbar" aria-label="Glass settings">
+  <div class="line"><span id="presets"></span><hr><span>Mouse</span><span id="mouse"></span><hr><button id="copy">Copy settings</button><hr><span style="color:#9c9ca1">Press H to hide the controls</span></div>
+  <div class="line" id="knobs"></div>
+</div>
+<div class="site" id="site">
+  <header class="left">
+    <h1><img class="logo" src="../../public/logo.webp" width="369" height="144" alt="">KeyClip</h1>
+    <p class="tagline" id="tagline"></p>
+    <ul class="list" id="list"></ul>
+    <a class="ask" target="_blank" rel="noopener" id="ask">What else should I add?</a>
+  </header>
+  <main class="stage" id="stage">
+    <div class="backgrounds" id="bg"><canvas id="gl"></canvas></div>
+    <div class="view" id="view" aria-hidden="true"></div>
+    <button class="pause" id="pause">Pause</button>
+    <div class="bar"><p>KeyClip is 100% free<small>Version 1.1.0 for macOS 14 or later</small></p><a class="download" href="#">Download</a></div>
+  </main>
+</div>
+<script src="demo.js"></script>
+<script src="photos.js"></script>
+<script id="sim" type="x-shader">#version 300 es
+precision highp float;
+/* One small texture remembers what the mouse did. Each variant keeps something different in it. */
+uniform sampler2D uF; uniform vec2 uRes,uFs; uniform vec4 uSeg,uWin; uniform vec3 uPulse[4]; uniform vec2 uVel; uniform float uDt,uT,uPress; uniform int uV; out vec4 o;
+float seg(vec2 p,vec2 a,vec2 b){vec2 d=b-a;float t=clamp(dot(p-a,d)/max(dot(d,d),1e-4),0.,1.);return length(p-a-d*t);}
+float h1(float x){return fract(sin(x*91.17)*4375.85);}
+float n1(float x){float i=floor(x),f=fract(x);f*=f*(3.-2.*f);return mix(h1(i),h1(i+1.),f);}
+bool inWin(vec2 p){return all(lessThan(abs(p-uWin.xy),uWin.zw));}
+void main(){
+  vec2 p=gl_FragCoord.xy/uFs*uRes; vec2 e=1./uFs, uv=gl_FragCoord.xy*e;
+  vec4 f=texture(uF,uv); float d=seg(p,uSeg.xy,uSeg.zw);
+    float b=(texture(uF,uv+vec2(e.x,0.)).r+texture(uF,uv-vec2(e.x,0.)).r+texture(uF,uv+vec2(0.,e.y)).r+texture(uF,uv-vec2(0.,e.y)).r)*.25;
+    float r=mix(f.r,b,.12)*exp(-uDt/1.1);
+    r=max(r,uPress*exp(-d*d/(2.*95.*95.)));
+    for(int i=0;i<4;i++){float a=uPulse[i].z;if(a>0.&&a<1.4)r=max(r,(1.-a/1.4)*.85*exp(-pow((length(p-uPulse[i].xy)-a*760.)/58.,2.)));}
+    o=vec4(r,0.,0.,1.);
+}</script>
+<script id="show" type="x-shader">#version 300 es
+precision highp float;
+uniform sampler2D uA,uB,uF; uniform vec4 uCa,uCb; uniform vec2 uRes,uFs; uniform float uT,uMix,uDpr,uTa,uTb,uAmt,uOp,uOpV,uBl,uBlV,uSize,uGap,uEdge,uRef,uCov,uMove; uniform int uMouse; uniform bool uGa,uGb; uniform int uV;
+uniform vec4 uBlob[8]; uniform vec3 uBc[8],uBase,uPal[4]; out vec4 o;
+float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f*=f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+vec4 F(vec2 p){return texture(uF,p/uRes);}
+/* Very large, soft, see-through circles. Warping the space they are measured in changes their shape. */
+vec3 gradient(vec2 p){
+  vec2 q=p/uRes.y*1.5; float t=uT*.06;
+  vec2 w=vec2(noise(q+t),noise(q+vec2(7.3,-t)))-.5; w+=.5*(vec2(noise(q*2.1-t),noise(q*2.1+vec2(3.1,t*1.3)))-.5);
+  p+=w*uRes.y*.34;
+  vec3 c=uBase*uBase;
+  for(int i=0;i<8;i++){vec2 d=(p-uBlob[i].xy)/uBlob[i].z;float a=uBlob[i].w*exp(-dot(d,d)*2.3);c=mix(c,uBc[i]*uBc[i],a);}
+  c=sqrt(c); float l=dot(c,vec3(.3,.6,.1)); return clamp(mix(vec3(l),c,1.22),0.,1.);
+}
+/* What is behind everything at stage pixel p, averaged over about r pixels. m crossfades to the next one. */
+vec3 pic(vec2 p,float r,float m){
+  vec2 u=p/uRes; vec3 a=vec3(0),b=vec3(0),g=vec3(0);
+  if((uGa&&m<1.)||(uGb&&m>0.))g=gradient(p);
+  if(m<1.)a=uGa?g:textureLod(uA,u*uCa.xy+uCa.zw,log2(max(1.,r*uTa))).rgb;
+  if(m>0.)b=uGb?g:textureLod(uB,u*uCb.xy+uCb.zw,log2(max(1.,r*uTb))).rgb;
+  return mix(a,b,m);
+}
+vec3 blur(vec2 p,float r,float m){
+  if(r<1.5||(uGa&&uGb))return pic(p,.5,m);
+  vec3 c=vec3(0);float a=hash(p)*6.28;
+  for(int i=0;i<20;i++){float q=sqrt((float(i)+.5)/20.);vec2 d=vec2(cos(a),sin(a))*q*r;c+=pic(p+d,r*.45,m);a+=2.39996;}
+  return c/20.;
+}
+vec3 hsv(vec3 c){vec4 K=vec4(0,-1./3.,2./3.,-1);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.*d+1e-6)),d/(q.x+1e-6),q.x);}
+vec3 rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(1,2./3.,1./3.))*6.-3.);return c.z*mix(vec3(1),clamp(p-1.,0.,1.),c.y);}
+/* 1 inside a square of half-size h around 0, with slightly rounded corners */
+float box(vec2 q,float h,float r){vec2 d=abs(q)-h+r;return 1.-smoothstep(-.6,.6,length(max(d,0.))+min(max(d.x,d.y),0.)-r);}
+/* A slow value from 0 to 1 that is different for every square */
+float own(vec2 id,float k){float h=hash(id+k);return mix(h,.5+.5*sin(uT*(.5+hash(id+k+5.)*.9)+h*6.283),uMove);}
+void main(){
+  vec2 p=gl_FragCoord.xy/uDpr; p.y=uRes.y-p.y; vec3 c;
+  float soft=clamp(uMix*1.6-noise(p/210.)*.6,0.,1.);
+  if(uV<2){ /* A sheet of white glass over the picture, cut into squares */
+    float s=uV==1?uSize*2.:uSize; vec2 org=mod(uRes*.5,s)-s,id0=floor((p-org)/s),id=id0,ct=(id+.5)*s+org; float en=F(ct).r;
+    float m=smoothstep(0.,.25,uMix*1.25-hash(id0+3.));
+    if(uV==1){ /* Mosaic: squares of mixed sizes, splitting further near the mouse */
+      float th[3]=float[](.08,.30,.56);
+      for(int i=0;i<3;i++){
+        id=floor((p-org)/s);ct=(id+.5)*s+org;en=F(ct).r;
+        float h=hash(id+s),o2=i==0?.40:i==1?.14:0.;
+        if(en+(h-.5)*.12*step(.03,en)<th[i]&&h>o2)break;
+        s*=.5; id=floor((p-org)/s);ct=(id+.5)*s+org;en=F(ct).r;
+      }
+      id+=s;
+    }
+    vec2 q=p-ct; float gap=min(uGap,s*.3),h=(s-gap)*.5;
+    float there=step(hash(id+17.),uCov+.0001);
+    float a=clamp(uOp*(1.+uOpV*(2.*own(id,1.)-1.)),0.,1.), r=uBl*(1.+uBlV*(2.*own(id,7.)-1.));
+    float near=smoothstep(.06,.7,en+(hash(id+4.)-.5)*.25*step(.02,en));
+    float edge=uEdge;
+    if(uMouse==0){a*=1.-near;r*=1.-near;edge*=1.-.6*near;}
+    else if(uMouse==1){a=mix(a,max(a,.92),near);there=max(there,step(.3,near));}
+    else if(uMouse==2){h*=1.-.8*near;}
+    else if(uMouse==3){r=mix(r,max(r,16.)*2.2,near);a=mix(a,min(a+.18,1.),near);there=max(there,step(.3,near));}
+    float in_=uGap<.5&&uMouse!=2?1.:box(q,h,min(uGap,3.));
+    vec3 back=pic(p,1.,m), g=blur(p-q*uRef,r,m);
+    g=mix(g,vec3(1),a);
+    float tl=smoothstep(1.4,.2,min(q.x,q.y)+h),br=smoothstep(1.4,.2,h-max(q.x,q.y));
+    g+=(tl*.75+br*.25)*edge*smoothstep(5.,16.,s);
+    c=mix(back,g,in_*there);
+  }else{ /* Gradient */
+    vec2 j=vec2(hash(floor(p)),hash(floor(p)+31.))-.5; float en=F(p).r;
+    c=gradient(p+j*16.);
+    vec3 z=hsv(c); z.y=min(1.,z.y*(1.+en*.22)); z.z=min(1.,z.z*(1.+en*.10)); c=rgb(z);
+    c+=(hash(p+3.)-.5)*.035*uAmt;
+  }
+  o=vec4(c+(hash(p+fract(uT))-.5)/255.,1.);
+}</script>
+<script>
+const $=(id)=>document.getElementById(id);
+const VARIANTS=[
+  {name:"A: Glass grid",tip:"Squares of one size."},
+  {name:"B: Glass mosaic",tip:"Mixed sizes that split near you."},
+  {name:"C: Gradient",tip:"The blobs drift towards you. Click to push them."},
+];
+/* base, then the colours the blobs and squares are made of. Photos have a matching set. */
+const LOOKS={
+  spring:{name:"Spring",base:"#bfe3ea",c:["#0aa6b8","#7aa7ff","#f7d3e6","#0b4f7d","#45e3d0","#a594ff"]},
+  aurora:{name:"Aurora",base:"#04211f",c:["#19d68c","#5f86ff","#ff9a76","#077a66","#a8ffd0","#3b4fd6"]},
+  canyon:{name:"Canyon",base:"#ffd9c2",c:["#ff6a26","#8aa2ff","#ffb02e","#d8431c","#ffc2a3","#ff7fae"]},
+  bloom:{name:"Bloom",base:"#fbf3f5",c:["#f0607c","#f6a6cf","#ffb08a","#c9b3ff","#ff7a59","#fbd3e4"]},
+  yellow:{name:"KeyClip",base:"#ffc400",c:["#ffd000","#ff7a1a","#fff0a0","#ff9d00","#ffe14d","#ff5470"]},
+};
+const ORDER=Object.keys(LOOKS), PHOTO=["spring","aurora","canyon"], FOCUS={spring:[.5,.6],aurora:[.5,.5],canyon:[.5,.45]};
+const photoFor=()=>choice||(variant===2||behind?["spring","bloom","aurora","yellow","canyon","bloom"][index]:PHOTO[index%3]);
+let behind=0; const isGrad=n=>variant===2||behind||!PHOTO.includes(n);
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+const KNOBS=[
+  {name:"Opacity",u:"uOp",min:0,max:100,unit:"%",k:.01},{name:"Opacity range",u:"uOpV",min:0,max:100,unit:"%",k:.01},
+  {name:"Blur",u:"uBl",min:0,max:80,unit:"px",k:1},{name:"Blur range",u:"uBlV",min:0,max:100,unit:"%",k:.01},
+  {name:"Square",u:"uSize",min:16,max:160,step:2,unit:"px",k:1},{name:"Gap",u:"uGap",min:0,max:16,unit:"px",k:1},
+  {name:"Edge",u:"uEdge",min:0,max:100,unit:"%",k:.01},{name:"Refraction",u:"uRef",min:0,max:100,unit:"%",k:.01},
+  {name:"Coverage",u:"uCov",min:0,max:100,unit:"%",k:.01},{name:"Movement",u:"uMove",min:0,max:100,unit:"%",k:.01},
+];
+const val=k=>k.v*k.k, amtValue=()=>variant===2?+$("amt").value:1;
+/*              opacity range blur range size gap edge refr cover move */
+const PRESETS={
+  "Soft glass":  [14,  100,  18,  60,  56,  0,  12,  20, 100, 50],
+  "Clear panes": [10,   80,   4, 100,  72,  2,  30,  35, 100, 40],
+  "Frosted":     [26,   60,  44,  20,  48,  2,  18,   0, 100, 40],
+  "Scattered":   [30,  100,  20,  80,  44,  4,  25,  20,  42, 60],
+  "Blur only":   [ 0,    0,  30, 100,  64,  0,   6,  25, 100, 50],
+  "White only":  [24,  100,   0,   0,  44,  2,   0,   0, 100, 60],
+};
+const MOUSE=["Clears","Whitens","Shrinks","Blurs"];let mouse=0;
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let variant=Math.max(0,"abc".indexOf(new URLSearchParams(location.search).get("v")||"a")), choice=null;
+
+/* ---- the site, with the real Demos ---- */
+let index=0,paused=false;
+$("tagline").textContent=KC.TAGLINE;$("ask").href=KC.SURVEY_URL;
+$("list").innerHTML=KC.FEATURES.map(f=>`<li><button class="item"><span class="ico">${KC.FEATURE_ICON[f.id]}</span><span class="txt"><b>${f.title}</b><span>${f.description}</span></span></button></li>`).join("");
+const items=[...document.querySelectorAll(".item")];
+const player=new KC.DemoPlayer($("view"),{isPhone:()=>false,reducedMotion:still,onProgress:v=>$("site").style.setProperty("--p",v.toFixed(4)),onEnd:()=>select(index+1)});
+function select(i){
+  index=(i+KC.FEATURES.length)%KC.FEATURES.length;
+  items.forEach((el,k)=>{el.classList.toggle("on",k===index);el.querySelector(".highlight")?.remove();if(k===index)el.insertAdjacentHTML("afterbegin",'<span class="highlight" style="border-radius:16px"><i></i></span>')});
+  player.play(index);
+  wantPhoto(photoFor());
+}
+items.forEach((el,i)=>el.onclick=()=>select(i));
+new ResizeObserver(()=>player.refit()).observe($("view"));
+document.addEventListener("visibilitychange",()=>player.hold("hidden",document.hidden));
+$("view").addEventListener("pointerover",e=>{const on=!!e.target.closest(".win");player.hold("hover",on);$("pause").textContent=paused?"Play":on?"Paused while you look":"Pause"});
+$("view").addEventListener("pointerleave",()=>{player.hold("hover",false);$("pause").textContent=paused?"Play":"Pause"});
+$("pause").onclick=()=>{paused=!paused;player.hold("user",paused);$("pause").textContent=paused?"Play":"Pause"};
+
+/* ---- WebGL ---- */
+const cv=$("gl"),gl=cv.getContext("webgl2",{antialias:false,alpha:false});
+const ok=gl&&(gl.getExtension("EXT_color_buffer_float")||gl.getExtension("EXT_color_buffer_half_float"));
+const tex={},size={};let cur=null,next=null,mixT=0,pending=null;
+function fallback(n){if(!PHOTOS[n])return;$("bg").style.backgroundImage=`url(${PHOTOS[n]})`}
+function wantPhoto(n){if(!ok)return fallback(n);pending=null;if(PHOTO.includes(n)&&!tex[n]){pending=n;return}if(!cur){cur=n;return}if(n===cur&&!next)return;if(next){cur=next;mixT=0}next=n===cur?null:n;mixT=0}
+let sim,show,fb=[],W=0,H=0,fw=0,fh=0,dpr=1;
+function prog(id){const mk=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(id+": "+gl.getShaderInfoLog(o));return o};
+  const p=gl.createProgram();gl.attachShader(p,mk(gl.VERTEX_SHADER,"#version 300 es\nvoid main(){vec2 p=vec2(gl_VertexID&1,gl_VertexID>>1)*4.-1.;gl_Position=vec4(p,0,1);}"));gl.attachShader(p,mk(gl.FRAGMENT_SHADER,$(id).textContent.trim()));gl.linkProgram(p);
+  const loc={};return{p,u:n=>loc[n]??=gl.getUniformLocation(p,n)}}
+function target(w,h){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.HALF_FLOAT,null);for(const k of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);for(const k of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
+  const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);return{t,f}}
+function clearField(){fb.forEach(b=>{gl.bindFramebuffer(gl.FRAMEBUFFER,b.f);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT)})}
+function resize(){const r=$("stage").getBoundingClientRect();if(r.width===W&&r.height===H)return;W=r.width;H=r.height;dpr=Math.min(devicePixelRatio||1,1.5);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  fw=360;fh=Math.round(360*H/W);fb.forEach(b=>{gl.deleteTexture(b.t);gl.deleteFramebuffer(b.f)});fb=[target(fw,fh),target(fw,fh)]}
+/* background-size: cover, as scale and offset */
+function cover(n){if(!size[n])return[1,1,0,0];const[iw,ih]=size[n],a=W/H,b=iw/ih;let sx=1,sy=1;if(a>b)sy=b/a;else sx=a/b;sx*=.95;sy*=.95;return[sx,sy,(1-sx)*FOCUS[n][0],(1-sy)*FOCUS[n][1]]}
+
+/* pointer, in stage pixels */
+const m={x:-999,y:-999,px:-999,py:-999,in:false,last:-1e9,lx:.5,ly:.3};let pulses=[];
+$("stage").addEventListener("pointermove",e=>{const r=$("stage").getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(!m.in){m.px=x;m.py=y}m.x=x;m.y=y;m.in=true;m.last=performance.now()});
+$("stage").addEventListener("pointerleave",()=>{m.in=false});
+$("stage").addEventListener("pointerdown",e=>{if(e.target.closest("button,a"))return;const r=$("stage").getBoundingClientRect();pulse(e.clientX-r.left,e.clientY-r.top)});
+function pulse(x,y){pulses.unshift({x,y,t:performance.now()});pulses.length=Math.min(pulses.length,4)}
+/* A click made by the Demo's own cursor moves the background too. */
+new MutationObserver(l=>l.forEach(r=>{const el=r.target;if(el.classList.contains("cur")&&el.classList.contains("dn")&&!(r.oldValue||"").includes("dn")){const a=el.getBoundingClientRect(),s=$("stage").getBoundingClientRect();pulse(a.left-s.left,a.top-s.top)}})).observe($("view"),{subtree:true,attributes:true,attributeFilter:["class"],attributeOldValue:true});
+
+/* Gradient: eight big circles, each on its own slow path, leaning towards the mouse. Colours drift round the set. */
+const B8=[...Array(8)].map((_,i)=>({x:0,y:0,ox:0,oy:0,vx:0,vy:0,a:i*.785+.4,k:.5+((i*37)%10)/14,c:[.5,.5,.5]}));let base=null;
+const pal=[...Array(4)].map(()=>[0,0,0]);
+function blobs(t,dt,awake){
+  const L=LOOKS[next||cur],C=L.c.map(hex),e=1-Math.exp(-dt*1.6),toward=(v,w)=>v.forEach((x,i)=>v[i]+=(w[i]-x)*(cut?1:e)),cut=!base;
+  base??=hex(L.base);toward(base,hex(L.base));pal.forEach((v,i)=>toward(v,C[i]));
+  const S=Math.max(W,H),amt=amtValue(),pos=[],col=[],T=still?3:t;
+  B8.forEach((b,i)=>{
+    const x=W*(.5+.47*Math.cos(b.a+T*.055*b.k*amt)),y=H*(.55+.5*Math.sin(b.a*1.7+T*.07*b.k*amt)),r=S*(.25+.13*b.k)*(1+.2*Math.sin(T*.17*b.k+i*2.1));
+    let fx=-b.ox*1.6,fy=-b.oy*1.6;
+    if(awake){const dx=m.lx-x-b.ox,dy=m.ly-y-b.oy,d=Math.hypot(dx,dy)+1,g=Math.exp(-d*d/(2*(S*.34)**2));fx+=dx*g*3.4;fy+=dy*g*3.4}
+    pulses.forEach(q=>{const age=(performance.now()-q.t)/1000;if(age<.35){const dx=x+b.ox-q.x,dy=y+b.oy-q.y,d=Math.hypot(dx,dy)+60,g=Math.exp(-d*d/(2*(S*.4)**2));fx+=dx/d*g*2600;fy+=dy/d*g*2600}});
+    b.vx=(b.vx+fx*dt)*Math.exp(-dt*1.5);b.vy=(b.vy+fy*dt)*Math.exp(-dt*1.5);b.ox+=b.vx*dt;b.oy+=b.vy*dt;
+    const q=i+T*.05,n=C.length,k=Math.floor(q)%n,f=q%1,w=f*f*(3-2*f);toward(b.c,C[k].map((v,j)=>v+(C[(k+1)%n][j]-v)*w));
+    pos.push(x+b.ox,y+b.oy,r,.78+.16*Math.sin(T*.11+i));col.push(...b.c)});
+  gl.uniform4fv(show.u("uBlob"),pos);gl.uniform3fv(show.u("uBc"),col);gl.uniform3fv(show.u("uBase"),base);gl.uniform3fv(show.u("uPal"),pal.flat());
+}
+let last=performance.now(),acc=0,ghost=0,gx=0,gy=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,(now-last)/1000);last=now;resize();
+  if(pending&&tex[pending]){const n=pending;pending=null;wantPhoto(n)}
+  if(!cur)return;
+  if(next){mixT+=dt/(still?.01:1.1);if(mixT>=1){cur=next;next=null;mixT=0}}
+  /* Nobody moving the mouse: a slow, fainter pass around the edge keeps it alive. */
+  const idle=!still&&now-m.last>5000;ghost+=dt*.32;
+  let a=[m.px,m.py,m.x,m.y],press=m.in&&!idle?1:0;
+  if(idle){const x=W/2+Math.cos(ghost)*W*.44,y=H*.45+Math.sin(ghost*1.6)*H*.4;a=[gx||x,gy||y,x,y];gx=x;gy=y;press=.55}else gx=gy=0;
+  m.px=m.x;m.py=m.y;
+  const lx=idle?a[2]:m.in?m.x:W*.5,ly=idle?a[3]:m.in?m.y:H*.3;m.lx+=(lx-m.lx)*Math.min(1,dt*7);m.ly+=(ly-m.ly)*Math.min(1,dt*7);
+  gl.useProgram(sim.p);gl.viewport(0,0,fw,fh);gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(sim.u("uF"),0);gl.uniform2f(sim.u("uRes"),W,H);gl.uniform2f(sim.u("uFs"),fw,fh);gl.uniform1f(sim.u("uT"),now/1000);gl.uniform1f(sim.u("uPress"),press);
+  for(let i=0;i<4;i++){const q=pulses[i];gl.uniform3f(sim.u(`uPulse[${i}]`),q?q.x:0,q?q.y:0,q?(now-q.t)/1000+.001:-1)}
+  const h=1/180;acc=Math.min(acc+dt,h*8);const n=Math.floor(acc/h);acc-=n*h;
+  for(let i=0;i<n;i++){const f=k=>a[k]+(a[k+2]-a[k])*(i/n),g=k=>a[k]+(a[k+2]-a[k])*((i+1)/n);
+    gl.uniform4f(sim.u("uSeg"),f(0),f(1),g(0),g(1));gl.uniform1f(sim.u("uDt"),h);
+    gl.bindTexture(gl.TEXTURE_2D,fb[0].t);gl.bindFramebuffer(gl.FRAMEBUFFER,fb[1].f);gl.drawArrays(gl.TRIANGLES,0,3);fb.reverse()}
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,cv.width,cv.height);gl.useProgram(show.p);
+  const B=next||cur,ca=cover(cur),cb=cover(B);
+  const any=tex.spring||tex.aurora||tex.canyon;[[0,tex[cur]||any,"uA"],[1,tex[B]||any,"uB"],[2,fb[0].t,"uF"]].forEach(([i,t,u])=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(show.u(u),i)});
+  blobs(now/1000,dt,idle||m.in);
+  gl.uniform4f(show.u("uCa"),...ca);gl.uniform4f(show.u("uCb"),...cb);gl.uniform1f(show.u("uTa"),(size[cur]?.[0]||W)*ca[0]/W);gl.uniform1f(show.u("uTb"),(size[B]?.[0]||W)*cb[0]/W);gl.uniform1i(show.u("uGa"),isGrad(cur));gl.uniform1i(show.u("uGb"),isGrad(B));for(const k of KNOBS)gl.uniform1f(show.u(k.u),val(k));gl.uniform1i(show.u("uMouse"),mouse);
+  gl.uniform2f(show.u("uRes"),W,H);gl.uniform2f(show.u("uFs"),fw,fh);gl.uniform1f(show.u("uT"),still?0:now/1000);gl.uniform1f(show.u("uMix"),next?mixT:0);gl.uniform1f(show.u("uDpr"),dpr);gl.uniform1f(show.u("uAmt"),amtValue());gl.uniform1i(show.u("uV"),variant);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+/* ---- controls ---- */
+function pills(id,names,on){$(id).innerHTML=names.map(n=>`<button>${n}</button>`).join("");const b=[...$(id).children];const set=i=>{b.forEach((x,k)=>x.setAttribute("aria-pressed",k===i));on(i)};b.forEach((x,i)=>x.onclick=()=>set(i));return set}
+const setV=pills("variants",VARIANTS.map(v=>v.name),i=>{variant=i;$("tip").textContent=VARIANTS[i].tip;pulses=[];$("glass").hidden=i===2;$("amtbox").hidden=i!==2;$("behind").hidden=$("bhr").hidden=i===2;if(fb.length)clearField();wantPhoto(photoFor())});
+const setP=pills("photos",["Per Feature",...ORDER.map(n=>LOOKS[n].name)],i=>{choice=i?ORDER[i-1]:null;wantPhoto(photoFor())});
+pills("behind",["Photo","Gradient"],i=>{behind=i;wantPhoto(photoFor())})(0);
+/* Settings shared by A and B. Presets are only starting points for the sliders. */
+$("knobs").innerHTML=KNOBS.map(k=>`<label>${k.name}<input type="range" id="k-${k.u}" min="${k.min}" max="${k.max}" step="${k.step||1}"><output></output></label>`).join("");
+KNOBS.forEach(k=>{const el=$("k-"+k.u);el.oninput=()=>{k.v=+el.value;label(k);$("presets").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",false))}});
+function label(k){const el=$("k-"+k.u);el.value=k.v;el.nextElementSibling.textContent=k.v+k.unit}
+pills("presets",Object.keys(PRESETS),i=>{Object.values(PRESETS)[i].forEach((v,j)=>{KNOBS[j].v=v;label(KNOBS[j])})})(0);
+pills("mouse",MOUSE,i=>{mouse=i})(0);
+$("copy").onclick=async()=>{const t=[VARIANTS[variant].name,"look: "+(choice?LOOKS[choice].name:"Per Feature"),"behind: "+(behind?"Gradient":"Photo"),...KNOBS.map(k=>k.name+": "+k.v+k.unit),"mouse: "+MOUSE[mouse]].join("\n");
+  try{await navigator.clipboard.writeText(t)}catch{const a=document.createElement("textarea");a.value=t;document.body.append(a);a.select();document.execCommand("copy");a.remove()}
+  $("copy").textContent="Copied";setTimeout(()=>$("copy").textContent="Copy settings",1500)};
+addEventListener("keydown",e=>{if(e.target.tagName!=="INPUT"&&"123".includes(e.key))setV(e.key-1)});
+addEventListener("keydown",e=>{if(e.key==="h"&&!e.metaKey&&!e.ctrlKey)document.body.classList.toggle("bare")});
+if(ok){sim=prog("sim");show=prog("show");gl.bindVertexArray(gl.createVertexArray());
+  PHOTO.forEach(n=>{const im=new Image();im.onload=()=>{const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);for(const k of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.MIRRORED_REPEAT);size[n]=[im.width,im.height];tex[n]=t};im.src=PHOTOS[n]});
+}else cv.remove();
+setV(variant);setP(0);select(0);
+if(ok)requestAnimationFrame(frame);
+</script>
+</html>

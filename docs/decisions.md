@@ -2,9 +2,9 @@
 
 **2026-11-24**
 
-- **Desktop: Variant A.** The selected row fills as the Demo plays, windows fade from one to the next, yellow Stage. Variants B (side rail, sliding windows) and C (ring, one continuous take) are dropped. "What else should I add?" is dark gray so Download stands out. The page around the Stage is dark (`#111`).
+- **Desktop: Variant A.** The selected row fills as the Demo plays, windows fade from one to the next. Variants B (side rail, sliding windows) and C (ring, one continuous take) are dropped. "What else should I add?" is dark gray so Download stands out. The page around the Stage is dark (`#111`).
 - **Phone: Stories.** One Feature at a time, full screen. Tap a side, swipe, or use the named Back and Next buttons. No Download button, no "Send to my Mac", no "What else should I add?". One small banner: "KeyClip is 100% free. Download on a Mac."
-- **Phone background:** KeyClip's retro pixel art, a different one for each Feature (`art` in `lib/features.ts`).
+- **Background, desktop and phone:** a moving gradient of large blended blobs, with its own colors for each Feature (`look` in `lib/features.ts`, colors in `lib/looks.ts`). Chosen over photos with water, frost, reeded glass and squares of glass; those prototypes are in `low-fidelity/stage-backgrounds/`. Pause freezes it.
 - **Tap Hint:** shown on every visit. May get annoying; revisit later.
 - **Who is in the Demos:** Ryan. A drawn stand-in until there are photos; swap them in `lib/demo/person.ts`.
 - **The app in the Demos:** rebuilt as HTML from the SwiftUI views (v1.1.0), checked against renders of the real views. It has no license or trial UI. When the app's design changes, update `lib/demo/screens.ts` and `app/demo.css` by hand.

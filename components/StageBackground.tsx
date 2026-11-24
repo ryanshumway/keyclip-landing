@@ -1,17 +1,34 @@
-import { FEATURES } from "@/lib/features";
+"use client";
 
-/**
- * What sits behind the app. Desktop: the yellow gradient, in globals.css.
- * Phones: KeyClip's own retro backgrounds, one per Feature.
- */
-export function StageBackground({ index }: { index: number }) {
+import { useEffect, useRef } from "react";
+import { FEATURES } from "@/lib/features";
+import { GradientPainter } from "@/lib/gradient";
+import { LOOKS, type Look } from "@/lib/looks";
+
+/** What shows before the gradient starts, and where WebGL isn't available. */
+const still = ({ base, colors: c }: Look) =>
+  `radial-gradient(60% 70% at 8% 12%,${c[1]},#0000),radial-gradient(60% 70% at 92% 8%,${c[2]},#0000),radial-gradient(70% 80% at 88% 96%,${c[0]},#0000),radial-gradient(60% 70% at 18% 98%,${c[4]},#0000),${base}`;
+
+/** The moving gradient behind the app, in the current Feature's colors. Pause stops it too. */
+export function StageBackground({ index, paused }: { index: number; paused: boolean }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const painter = useRef<GradientPainter | null>(null);
+  const look = LOOKS[FEATURES[index].look];
+
+  useEffect(() => {
+    const p = GradientPainter.start(canvas.current!);
+    painter.current = p;
+    return () => {
+      p?.destroy();
+      painter.current = null;
+    };
+  }, []);
+  useEffect(() => painter.current?.setLook(look), [look]);
+  useEffect(() => painter.current?.setPaused(paused), [paused]);
+
   return (
-    <div className="backgrounds" aria-hidden="true">
-      {FEATURES.map((f, i) => {
-        // Only the current and next images are requested.
-        const wanted = i === index || i === (index + 1) % FEATURES.length;
-        return <i key={f.id} className={i === index ? "on" : ""} style={wanted ? ({ "--art": `url(/art/${f.art}.webp)` } as React.CSSProperties) : undefined} />;
-      })}
+    <div className="backgrounds" aria-hidden="true" style={{ background: still(look) }}>
+      <canvas ref={canvas} />
     </div>
   );
 }

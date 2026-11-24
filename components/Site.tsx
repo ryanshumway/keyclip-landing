@@ -129,7 +129,7 @@ export function Site({ version, macOS }: { version: string; macOS: string }) {
         </div>
 
         <main className="stage">
-          <StageBackground index={index} />
+          <StageBackground index={index} paused={paused} />
           <div className="view" ref={view} aria-hidden="true" onPointerOver={overWindow} onPointerLeave={() => setLooking(false)} />
           <TapSides onStep={step} onHold={hold} />
           <button className="pause" onClick={() => setPaused(!paused)} aria-label={paused ? "Play demos" : "Pause demos"}>
