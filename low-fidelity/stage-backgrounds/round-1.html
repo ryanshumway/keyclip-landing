@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KeyClip: Stage background prototypes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital@0;1&display=swap">
+<style>@font-face{font-family:Funnel;src:url(../landing-revamp/FunnelDisplay.ttf);font-weight:300 800}:root{--font-display:Funnel;--font-serif:"Libre Baskerville"}</style>
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="demo.css">
+<style>
+/* Prototype controls. Everything below them is the real site. */
+.proto{height:48px;display:flex;align-items:center;gap:6px;padding:0 12px;background:#000;border-bottom:1px solid #ffffff1f;font-size:14px;color:#c9c9ce;white-space:nowrap;overflow-x:auto}
+.proto button{padding:7px 12px;border-radius:9px}
+.proto button:hover{background:#1f1f20}
+.proto button[aria-pressed=true]{background:#fff;color:#000;font-weight:600}
+.proto hr{width:1px;height:20px;border:0;background:#ffffff2e;margin:0 8px;flex:none}
+.proto label{display:flex;align-items:center;gap:8px}
+.proto input{width:110px;accent-color:#ffd000}
+.proto .tip{margin-left:auto;padding-left:16px;color:#9c9ca1}
+.site{height:calc(100dvh - 48px)}
+.left h1{margin-top:clamp(0px,100dvh - 808px,67px)}
+.backgrounds{background:#111 center/cover}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage .view{z-index:2}
+</style>
+<div class="proto" role="toolbar" aria-label="Prototype controls">
+  <span id="variants"></span><hr><span id="photos"></span><hr>
+  <label>Strength <input id="amt" type="range" min="0.2" max="2" step="0.05" value="1"></label>
+  <span class="tip" id="tip"></span>
+</div>
+<div class="site" id="site">
+  <header class="left">
+    <h1><img class="logo" src="../../public/logo.webp" width="369" height="144" alt="">KeyClip</h1>
+    <p class="tagline" id="tagline"></p>
+    <ul class="list" id="list"></ul>
+    <a class="ask" target="_blank" rel="noopener" id="ask">What else should I add?</a>
+  </header>
+  <main class="stage" id="stage">
+    <div class="backgrounds" id="bg"><canvas id="gl"></canvas></div>
+    <div class="view" id="view" aria-hidden="true"></div>
+    <button class="pause" id="pause">Pause</button>
+    <div class="bar"><p>KeyClip is 100% free<small>Version 1.1.0 for macOS 14 or later</small></p><a class="download" href="#">Download</a></div>
+  </main>
+</div>
+<script src="demo.js"></script>
+<script src="photos.js"></script>
+<script id="sim" type="x-shader">#version 300 es
+precision highp float;
+/* One small texture remembers what the mouse did. Each variant keeps something different in it. */
+uniform sampler2D uF; uniform vec2 uRes,uFs; uniform vec4 uSeg,uWin; uniform vec3 uPulse[4]; uniform vec2 uVel; uniform float uDt,uT,uPress; uniform int uV; out vec4 o;
+float seg(vec2 p,vec2 a,vec2 b){vec2 d=b-a;float t=clamp(dot(p-a,d)/max(dot(d,d),1e-4),0.,1.);return length(p-a-d*t);}
+float h1(float x){return fract(sin(x*91.17)*4375.85);}
+float n1(float x){float i=floor(x),f=fract(x);f*=f*(3.-2.*f);return mix(h1(i),h1(i+1.),f);}
+bool inWin(vec2 p){return all(lessThan(abs(p-uWin.xy),uWin.zw));}
+void main(){
+  vec2 p=gl_FragCoord.xy/uFs*uRes; vec2 e=1./uFs, uv=gl_FragCoord.xy*e;
+  vec4 f=texture(uF,uv); float d=seg(p,uSeg.xy,uSeg.zw);
+  if(uV==0){ /* Frost: how clear the glass is. Wiped water creeps down before it fogs over. */
+    float run=n1(p.x/7.)*n1(p.x/23.+9.); run=run*run*90.;
+    float s=texture(uF,uv-vec2(0.,run*uDt/uRes.y)).r;
+    float b=(texture(uF,uv+vec2(e.x,0.)).r+texture(uF,uv-vec2(e.x,0.)).r+texture(uF,uv+vec2(0.,e.y)).r+texture(uF,uv-vec2(0.,e.y)).r)*.25;
+    float r=mix(s,b,.03)*exp(-uDt/2.6);
+    r=max(r,uPress*smoothstep(125.,30.,d));
+    for(int i=0;i<4;i++){float a=uPulse[i].z;if(a>0.&&a<.9)r=max(r,(1.-a/.9)*smoothstep(46.,0.,abs(length(p-uPulse[i].xy)-a*420.)));}
+    o=vec4(r,0.,0.,1.);
+  }else if(uV==1){ /* Mosaic: energy */
+    float b=(texture(uF,uv+vec2(e.x,0.)).r+texture(uF,uv-vec2(e.x,0.)).r+texture(uF,uv+vec2(0.,e.y)).r+texture(uF,uv-vec2(0.,e.y)).r)*.25;
+    float r=mix(f.r,b,.12)*exp(-uDt/1.1);
+    r=max(r,uPress*exp(-d*d/(2.*95.*95.)));
+    for(int i=0;i<4;i++){float a=uPulse[i].z;if(a>0.&&a<1.4)r=max(r,(1.-a/1.4)*.85*exp(-pow((length(p-uPulse[i].xy)-a*760.)/58.,2.)));}
+    o=vec4(r,0.,0.,1.);
+  }else if(uV==2){ /* Water: height and speed. The app window is a wall the ripples bounce off. */
+    if(inWin(p)){o=vec4(0.,0.,0.,1.);return;}
+    float sum=0.; vec2 off[4]=vec2[](vec2(1,0),vec2(-1,0),vec2(0,1),vec2(0,-1));
+    for(int i=0;i<4;i++){vec2 q=p+off[i]/uFs*uRes; sum+=inWin(q)?f.r:texture(uF,uv+off[i]*e).r;}
+    float v=f.g+(sum-4.*f.r)*.24; v*=.995; float h=mix(f.r+v,sum*.25,.035)*.9992;
+    h-=uPress*exp(-d*d/(2.*17.*17.))*min(length(uVel)/1100.,1.)*.17;
+    for(int i=0;i<4;i++){float a=uPulse[i].z;if(a>0.&&a<.1){float q=length(p-uPulse[i].xy);h-=exp(-q*q/(2.*24.*24.))*.07;
+      /* A click in the Demo happens on the window, so it leaves from the window's edge. */
+      vec2 w=abs(p-uWin.xy)-uWin.zw; float edge=length(max(w,0.));h-=inWin(uPulse[i].xy)?exp(-edge*edge/200.-q*q/(2.*420.*420.))*.06:0.;}}
+    o=vec4(clamp(h,-1.5,1.5),clamp(v,-1.,1.),0.,1.);
+  }else{ /* Reeded: sideways swing of each rib, on a spring */
+    float l=texture(uF,uv-vec2(e.x,0.)).r+texture(uF,uv+vec2(e.x,0.)).r+texture(uF,uv-vec2(0.,e.y)).r+texture(uF,uv+vec2(0.,e.y)).r;
+    float v=f.g+(-46.*f.r-2.6*f.g+1500.*(l*.25-f.r))*uDt;
+    v+=uPress*uVel.x*exp(-d*d/(2.*120.*120.))*uDt*3.1;
+    for(int i=0;i<4;i++){float a=uPulse[i].z;if(a>0.&&a<.12){vec2 q=p-uPulse[i].xy;v+=sign(q.x)*exp(-dot(q,q)/(2.*260.*260.))*2600.*uDt*smoothstep(0.,60.,abs(q.x));}}
+    o=vec4(clamp(f.r+v*uDt,-110.,110.),clamp(v,-2500.,2500.),0.,1.);
+  }
+}</script>
+<script id="show" type="x-shader">#version 300 es
+precision highp float;
+uniform sampler2D uA,uB,uF; uniform vec4 uCa,uCb; uniform vec2 uRes,uFs,uM; uniform float uT,uMix,uDpr,uTa,uTb,uAmt; uniform int uV; out vec4 o;
+float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f*=f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+vec4 F(vec2 p){return texture(uF,p/uRes);}
+/* The photo at stage pixel p, averaged over about r pixels. m crossfades to the next photo. */
+vec3 pic(vec2 p,float r,float m){
+  vec2 u=p/uRes; vec3 a=vec3(0),b=vec3(0);
+  if(m<1.)a=textureLod(uA,u*uCa.xy+uCa.zw,log2(max(1.,r*uTa))).rgb;
+  if(m>0.)b=textureLod(uB,u*uCb.xy+uCb.zw,log2(max(1.,r*uTb))).rgb;
+  return mix(a,b,m);
+}
+vec3 blur(vec2 p,float r,float m){
+  if(r<1.5)return pic(p,.5,m);
+  vec3 c=vec3(0);float a=hash(p)*6.28;
+  for(int i=0;i<18;i++){float q=sqrt((float(i)+.5)/18.);vec2 d=vec2(cos(a),sin(a))*q*r;c+=pic(p+d,r*.45,m);a+=2.39996;}
+  return c/18.;
+}
+vec3 hsv(vec3 c){vec4 K=vec4(0,-1./3.,2./3.,-1);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.*d+1e-6)),d/(q.x+1e-6),q.x);}
+vec3 rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(1,2./3.,1./3.))*6.-3.);return c.z*mix(vec3(1),clamp(p-1.,0.,1.),c.y);}
+float H(vec2 p){vec2 e=uRes/uFs;return F(p).r*.4+(F(p+vec2(e.x,0)).r+F(p-vec2(e.x,0)).r+F(p+vec2(0,e.y)).r+F(p-vec2(0,e.y)).r)*.15;}
+void main(){
+  vec2 p=gl_FragCoord.xy/uDpr; p.y=uRes.y-p.y; vec3 c;
+  float soft=clamp(uMix*1.6-noise(p/210.)*.6,0.,1.);
+  if(uV==0){
+    float f=F(p).r; float k=smoothstep(.10,.6,f+(noise(p/17.)-.5)*.16*smoothstep(0.,.2,f));
+    vec2 e=vec2(5,0); vec2 g=vec2(F(p+e.xy).r-F(p-e.xy).r,F(p+e.yx).r-F(p-e.yx).r);
+    float fogged=1.-k; float rad=58.*uAmt*fogged;
+    vec2 grain=(vec2(hash(floor(p)),hash(floor(p)+31.))-.5)*7.*fogged;
+    c=blur(p+grain-g*70.*k*(1.-k)*4.,rad,soft);
+    float lum=dot(c,vec3(.3,.6,.1));
+    c=mix(c,mix(c,vec3(lum),.14)*.93+.045,fogged);
+    c+=(hash(p)-.5)*.022*fogged;
+    float rim=k*(1.-k)*4.; c+=rim*(-g.y*.5+.02)*.5;
+  }else if(uV==1){
+    float s=96.; vec2 org=mod(uRes*.5,s)-s; vec2 id0=floor((p-org)/s); vec2 base=(id0+.5)*s+org;
+    float m=smoothstep(0.,.25,uMix*1.25-hash(id0+3.));
+    float th[3]=float[](.10,.30,.56); float big=1.;
+    vec2 id=id0,ct=base; float en=F(ct).r;
+    for(int i=0;i<3;i++){
+      id=floor((p-org)/s);ct=(id+.5)*s+org;en=F(ct).r;
+      float h=hash(id+s); float own=i==0?.38:i==1?.16:0.;
+      if(en+(h-.5)*.12*step(.03,en)<th[i]&&h>own)break;
+      s*=.5;big*=.62;
+      id=floor((p-org)/s);ct=(id+.5)*s+org;en=F(ct).r;
+    }
+    float a=hash(id+s*1.7),b=hash(id+s*2.3+5.),d=hash(id+s*3.1+11.),w=hash(id+s*4.7+17.);
+    vec3 under=blur(p,5.,m), sq=pic(ct,s*.6,m), q=hsv(sq);
+    float tw=sin(uT*(.35+b*.5)+a*40.);
+    q.x+=((a-.5)*.15*big+tw*.012+en*(1.-en)*(b-.5)*.75)*uAmt;
+    q.y=clamp(q.y*(1.+(b-.5)*.8*uAmt)+en*.16,0.,1.);
+    q.z=clamp(q.z*(1.+((d-.5)*.62*big+tw*.05)*uAmt)+en*(1.-en)*.16,0.,1.);
+    float op=mix(.35,1.,w)*(1.-smoothstep(.62,.95,en));
+    c=mix(under,rgb(q),op);
+  }else if(uV==2){
+    vec2 e=vec2(4.5,0); float x1=H(p-e.xy),x2=H(p+e.xy),y1=H(p-e.yx),y2=H(p+e.yx),h=H(p);
+    vec2 n=vec2(x2-x1,y2-y1);
+    vec2 t=p/170.; vec2 swell=vec2(noise(t+uT*.22)-noise(t+vec2(.35,0)+uT*.22),noise(t+uT*.22)-noise(t+vec2(0,.35)+uT*.22));
+    n+=swell*.10; n*=uAmt;
+    vec2 r=clamp(n*240.,-90.,90.);
+    c.r=pic(p-r*1.07,1.,soft).r;c.g=pic(p-r,1.,soft).g;c.b=pic(p-r*.93,1.,soft).b;
+    float lap=(x1+x2+y1+y2-4.*h)*uAmt; c*=1.+clamp(-lap*2.6,-.3,.6);
+    vec3 N=normalize(vec3(-n*5.,1.)),L=normalize(vec3(-.45,-.6,.55)); float sp=pow(max(dot(reflect(-L,N),vec3(0,0,1)),0.),26.);
+    c+=min(sp,.75)*.2;
+  }else{
+    float w=44.; float d=F(p).r*uAmt; float x=p.x+d; float i=floor(x/w),f=fract(x/w)-.5;
+    float m=smoothstep(0.,.3,uMix*1.3-hash(vec2(i,4.)));
+    float sx=(i+.5)*w-d*.35+f*w*(1.+2.6*uAmt);
+    c=blur(vec2(sx,p.y),7.,m);
+    float near=exp(-pow((p.y-uM.y)/420.,2.))*exp(-pow((p.x-uM.x)/560.,2.));
+    float aim=clamp((uM.x-p.x)/420.,-1.,1.)*.36;
+    c*=mix(1.08,.66,smoothstep(.18,.5,abs(f)));
+    c+=exp(-pow((f-aim)/.085,2.))*(.05+.26*near);
+    c+=exp(-pow((f+.4)/.04,2.))*.06;
+    c*=1.+clamp(d/110.,-.5,.5)*.35;
+  }
+  o=vec4(c+(hash(p+fract(uT))-.5)/255.,1.);
+}</script>
+<script>
+const $=(id)=>document.getElementById(id);
+const VARIANTS=[
+  {name:"A: Frost",tip:"Wipe the fog off the glass. It creeps back."},
+  {name:"B: Mosaic",tip:"Squares split as you get close. Click for a wave."},
+  {name:"C: Water",tip:"Drag to ripple, click to drop. Ripples bounce off the app."},
+  {name:"D: Reeded glass",tip:"Sweep sideways to swing the ribs. The light follows you."},
+];
+const ORDER=["spring","aurora","canyon"], FOCUS={spring:[.5,.6],aurora:[.5,.5],canyon:[.5,.45]};
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let variant=Math.max(0,"abcd".indexOf(new URLSearchParams(location.search).get("v")||"a")), choice=null;
+
+/* ---- the site, with the real Demos ---- */
+let index=0,paused=false;
+$("tagline").textContent=KC.TAGLINE;$("ask").href=KC.SURVEY_URL;
+$("list").innerHTML=KC.FEATURES.map(f=>`<li><button class="item"><span class="ico">${KC.FEATURE_ICON[f.id]}</span><span class="txt"><b>${f.title}</b><span>${f.description}</span></span></button></li>`).join("");
+const items=[...document.querySelectorAll(".item")];
+const player=new KC.DemoPlayer($("view"),{isPhone:()=>false,reducedMotion:still,onProgress:v=>$("site").style.setProperty("--p",v.toFixed(4)),onEnd:()=>select(index+1)});
+function select(i){
+  index=(i+KC.FEATURES.length)%KC.FEATURES.length;
+  items.forEach((el,k)=>{el.classList.toggle("on",k===index);el.querySelector(".highlight")?.remove();if(k===index)el.insertAdjacentHTML("afterbegin",'<span class="highlight" style="border-radius:16px"><i></i></span>')});
+  player.play(index);
+  if(!choice)wantPhoto(ORDER[index%3]);
+}
+items.forEach((el,i)=>el.onclick=()=>select(i));
+new ResizeObserver(()=>player.refit()).observe($("view"));
+document.addEventListener("visibilitychange",()=>player.hold("hidden",document.hidden));
+$("view").addEventListener("pointerover",e=>{const on=!!e.target.closest(".win");player.hold("hover",on);$("pause").textContent=paused?"Play":on?"Paused while you look":"Pause"});
+$("view").addEventListener("pointerleave",()=>{player.hold("hover",false);$("pause").textContent=paused?"Play":"Pause"});
+$("pause").onclick=()=>{paused=!paused;player.hold("user",paused);$("pause").textContent=paused?"Play":"Pause"};
+
+/* ---- WebGL ---- */
+const cv=$("gl"),gl=cv.getContext("webgl2",{antialias:false,alpha:false});
+const ok=gl&&(gl.getExtension("EXT_color_buffer_float")||gl.getExtension("EXT_color_buffer_half_float"));
+const tex={},size={};let cur=null,next=null,mixT=0,pending=null;
+function fallback(n){$("bg").style.backgroundImage=`url(${PHOTOS[n]})`}
+function wantPhoto(n){if(!ok)return fallback(n);if(!tex[n]){pending=n;return}if(!cur){cur=n;return}if(n===cur&&!next)return;if(next){cur=next;mixT=0}next=n===cur?null:n;mixT=0}
+let sim,show,fb=[],W=0,H=0,fw=0,fh=0,dpr=1;
+function prog(id){const mk=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(id+": "+gl.getShaderInfoLog(o));return o};
+  const p=gl.createProgram();gl.attachShader(p,mk(gl.VERTEX_SHADER,"#version 300 es\nvoid main(){vec2 p=vec2(gl_VertexID&1,gl_VertexID>>1)*4.-1.;gl_Position=vec4(p,0,1);}"));gl.attachShader(p,mk(gl.FRAGMENT_SHADER,$(id).textContent.trim()));gl.linkProgram(p);
+  const loc={};return{p,u:n=>loc[n]??=gl.getUniformLocation(p,n)}}
+function target(w,h){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.HALF_FLOAT,null);for(const k of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);for(const k of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
+  const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);return{t,f}}
+function clearField(){fb.forEach(b=>{gl.bindFramebuffer(gl.FRAMEBUFFER,b.f);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT)})}
+function resize(){const r=$("stage").getBoundingClientRect();if(r.width===W&&r.height===H)return;W=r.width;H=r.height;dpr=Math.min(devicePixelRatio||1,1.5);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  fw=360;fh=Math.round(360*H/W);fb.forEach(b=>{gl.deleteTexture(b.t);gl.deleteFramebuffer(b.f)});fb=[target(fw,fh),target(fw,fh)]}
+/* background-size: cover, as scale and offset */
+function cover(n){const[iw,ih]=size[n],a=W/H,b=iw/ih;let sx=1,sy=1;if(a>b)sy=b/a;else sx=a/b;sx*=.95;sy*=.95;return[sx,sy,(1-sx)*FOCUS[n][0],(1-sy)*FOCUS[n][1]]}
+
+/* pointer, in stage pixels */
+const m={x:-999,y:-999,px:-999,py:-999,in:false,last:-1e9,lx:.5,ly:.3};let pulses=[];
+$("stage").addEventListener("pointermove",e=>{const r=$("stage").getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(!m.in){m.px=x;m.py=y}m.x=x;m.y=y;m.in=true;m.last=performance.now()});
+$("stage").addEventListener("pointerleave",()=>{m.in=false});
+$("stage").addEventListener("pointerdown",e=>{if(e.target.closest("button,a"))return;const r=$("stage").getBoundingClientRect();pulse(e.clientX-r.left,e.clientY-r.top)});
+function pulse(x,y){pulses.unshift({x,y,t:performance.now()});pulses.length=Math.min(pulses.length,4)}
+/* A click made by the Demo's own cursor moves the background too. */
+new MutationObserver(l=>l.forEach(r=>{const el=r.target;if(el.classList.contains("cur")&&el.classList.contains("dn")&&!(r.oldValue||"").includes("dn")){const a=el.getBoundingClientRect(),s=$("stage").getBoundingClientRect();pulse(a.left-s.left,a.top-s.top)}})).observe($("view"),{subtree:true,attributes:true,attributeFilter:["class"],attributeOldValue:true});
+
+let last=performance.now(),acc=0,win=[-1e4,-1e4,1,1],ghost=0,gx=0,gy=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,(now-last)/1000);last=now;resize();
+  if(pending&&tex[pending]){const n=pending;pending=null;wantPhoto(n)}
+  if(!cur)return;
+  if(next){mixT+=dt/(still?.01:1.1);if(mixT>=1){cur=next;next=null;mixT=0}}
+  const wb=$("view").querySelector(".win:not(.out-swap)")?.getBoundingClientRect(),sb=$("stage").getBoundingClientRect();
+  if(wb)win=[wb.left-sb.left+wb.width/2,wb.top-sb.top+wb.height/2,wb.width/2,wb.height/2];
+  /* Nobody moving the mouse: a slow, fainter pass around the edge keeps it alive. */
+  const idle=!still&&now-m.last>5000;ghost+=dt*.32;
+  let a=[m.px,m.py,m.x,m.y],press=m.in&&!idle?1:0;
+  if(idle){const x=W/2+Math.cos(ghost)*W*.44,y=H*.45+Math.sin(ghost*1.6)*H*.4;a=[gx||x,gy||y,x,y];gx=x;gy=y;press=variant===2?1:.62;if(variant===3)press=2.2}else gx=gy=0;
+  const vx=(a[2]-a[0])/Math.max(dt,.004),vy=(a[3]-a[1])/Math.max(dt,.004);
+  m.px=m.x;m.py=m.y;
+  const lx=idle?a[2]:m.in?m.x:W*.5,ly=idle?a[3]:m.in?m.y:H*.3;m.lx+=(lx-m.lx)*Math.min(1,dt*7);m.ly+=(ly-m.ly)*Math.min(1,dt*7);
+  gl.useProgram(sim.p);gl.viewport(0,0,fw,fh);gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(sim.u("uF"),0);gl.uniform2f(sim.u("uRes"),W,H);gl.uniform2f(sim.u("uFs"),fw,fh);gl.uniform1f(sim.u("uT"),now/1000);gl.uniform1i(sim.u("uV"),variant);gl.uniform1f(sim.u("uPress"),press);gl.uniform4f(sim.u("uWin"),...win);gl.uniform2f(sim.u("uVel"),vx,vy);
+  for(let i=0;i<4;i++){const q=pulses[i];gl.uniform3f(sim.u(`uPulse[${i}]`),q?q.x:0,q?q.y:0,q?(now-q.t)/1000+.001:-1)}
+  const h=1/180;acc=Math.min(acc+dt,h*8);const n=Math.floor(acc/h);acc-=n*h;
+  for(let i=0;i<n;i++){const f=k=>a[k]+(a[k+2]-a[k])*(i/n),g=k=>a[k]+(a[k+2]-a[k])*((i+1)/n);
+    gl.uniform4f(sim.u("uSeg"),f(0),f(1),g(0),g(1));gl.uniform1f(sim.u("uDt"),h);
+    gl.bindTexture(gl.TEXTURE_2D,fb[0].t);gl.bindFramebuffer(gl.FRAMEBUFFER,fb[1].f);gl.drawArrays(gl.TRIANGLES,0,3);fb.reverse()}
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,cv.width,cv.height);gl.useProgram(show.p);
+  const B=next||cur,ca=cover(cur),cb=cover(B);
+  [[0,tex[cur],"uA"],[1,tex[B],"uB"],[2,fb[0].t,"uF"]].forEach(([i,t,u])=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(show.u(u),i)});
+  gl.uniform4f(show.u("uCa"),...ca);gl.uniform4f(show.u("uCb"),...cb);gl.uniform1f(show.u("uTa"),size[cur][0]*ca[0]/W);gl.uniform1f(show.u("uTb"),size[B][0]*cb[0]/W);
+  gl.uniform2f(show.u("uRes"),W,H);gl.uniform2f(show.u("uFs"),fw,fh);gl.uniform2f(show.u("uM"),m.lx,m.ly);gl.uniform1f(show.u("uT"),still?0:now/1000);gl.uniform1f(show.u("uMix"),next?mixT:0);gl.uniform1f(show.u("uDpr"),dpr);gl.uniform1f(show.u("uAmt"),+$("amt").value);gl.uniform1i(show.u("uV"),variant);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+/* ---- controls ---- */
+function pills(id,names,on){$(id).innerHTML=names.map(n=>`<button>${n}</button>`).join("");const b=[...$(id).children];const set=i=>{b.forEach((x,k)=>x.setAttribute("aria-pressed",k===i));on(i)};b.forEach((x,i)=>x.onclick=()=>set(i));return set}
+const setV=pills("variants",VARIANTS.map(v=>v.name),i=>{variant=i;$("tip").textContent=VARIANTS[i].tip;pulses=[];if(fb.length)clearField()});
+const setP=pills("photos",["Photo per Feature","Spring","Aurora","Canyon"],i=>{choice=i?ORDER[i-1]:null;wantPhoto(choice||ORDER[index%3])});
+addEventListener("keydown",e=>{if(e.target.tagName!=="INPUT"&&"1234".includes(e.key))setV(e.key-1)});
+if(ok){sim=prog("sim");show=prog("show");gl.bindVertexArray(gl.createVertexArray());
+  ORDER.forEach(n=>{const im=new Image();im.onload=()=>{const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);for(const k of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.MIRRORED_REPEAT);size[n]=[im.width,im.height];tex[n]=t};im.src=PHOTOS[n]});
+}else cv.remove();
+setV(variant);setP(0);select(0);
+if(ok)requestAnimationFrame(frame);
+</script>
+</html>

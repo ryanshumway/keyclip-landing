@@ -1,0 +1,90 @@
+*{box-sizing:border-box;margin:0;padding:0}
+:root{color-scheme:dark;--yellow:#ffd000;--page:#111;--ink:#f0f0f5;--mute:#9c9ca1;--hover:#2a2a2b;--selected:#3a3a3c;--fill:#565659;--sans:var(--font-display),system-ui,sans-serif;--read:var(--font-serif),Georgia,serif}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--sans);background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,a{font:inherit;color:inherit;border:0;background:none;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2.5px solid var(--yellow);outline-offset:2px}
+.stage :focus-visible{outline-color:#fff}
+.phone{display:none}
+
+/* ---- desktop ---- */
+/* --gap is the only space between the window, the list and the Stage. */
+.site{--p:0;--gap:8px;height:100dvh;display:grid;grid-template-columns:minmax(320px,384px) 1fr;gap:var(--gap);padding:var(--gap)}
+.left{display:flex;flex-direction:column;min-height:0}
+/* 75px puts the logo as far from the top as the tagline is from the sides. It gives way first when the window is short. */
+.left h1{margin-top:clamp(0px,100dvh - 760px,75px);font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1;padding:0 10px;display:flex;align-items:center;justify-content:center;gap:9px}
+.logo{height:.9em;width:auto;flex:none}
+.tagline{font:italic 16px/1.4 var(--read);padding:0 10px;margin-top:16px;text-align:center}
+.list{margin-top:40px;display:flex;flex-direction:column;gap:4px;list-style:none;min-height:0}
+.item{position:relative;display:grid;grid-template-columns:40px 1fr;gap:8px;width:100%;text-align:left;padding:12px;border-radius:16px;align-items:center;transition:all ease-in .15s}
+.item:hover:not(.on){background:var(--hover)}
+.item:active:not(.on){background:var(--selected)}
+.highlight{position:absolute;inset:0;background:var(--selected);overflow:hidden}
+.highlight i{position:absolute;inset:0;background:var(--fill);transform-origin:left;transform:scaleX(var(--p))}
+.ico{position:relative;width:40px;height:40px;display:grid;place-items:center}
+.txt{position:relative}
+.txt b{display:block;font-size:17px;font-weight:500;line-height:1.25;letter-spacing:-.005em}
+.on .txt b{font-weight:700}
+.txt span{display:block;font:400 13.5px/1.5 var(--read);color:var(--mute);margin-top:3px;min-height:3em;text-wrap:pretty}
+.on .txt span{color:#e6e6ea}
+.ask{margin-top:auto;display:block;text-align:center;background:#1f1f20;border-radius:16px;padding:14px;font-size:17px;font-weight:500;transition:background .15s,transform .15s}
+.ask:hover{background:#2a2a2b}.ask:active{transform:scale(.985)}
+.stage{position:relative;border-radius:26px;overflow:hidden;background:#111;min-width:0;min-height:0}
+.backgrounds,.backgrounds canvas,.backgrounds::after{position:absolute;inset:0}
+.backgrounds canvas{width:100%;height:100%}
+.view{position:absolute;inset:50px 0 86px}
+.bar{position:absolute;left:6px;right:6px;bottom:6px;height:76px;border-radius:20px;background:#0b0b0bc9;backdrop-filter:blur(18px) saturate(1.3);display:flex;align-items:center;gap:16px;padding:0 14px 0 20px;color:#fff;font-size:18px;z-index:5}
+.bar small{display:block;font-size:13px;color:#ffffffb3;margin-top:2px}
+.download{margin-left:auto;background:var(--yellow);color:#000;border-radius:14px;padding:13px 24px;font-weight:600;transition:filter .15s,transform .15s}
+.download:hover{filter:brightness(.94)}.download:active{transform:scale(.97)}
+.pause{position:absolute;top:6px;right:6px;z-index:6;height:40px;min-width:40px;padding:0 13px;border-radius:20px;background:#0b0b0b99;backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;gap:8px;font-size:13px;transition:background .15s}
+.pause:hover{background:#0b0b0bd9}
+@media (min-width:820px) and (max-height:760px){.left h1{margin-top:clamp(0px,100dvh - 600px,75px)}.list{margin-top:22px}.txt span{display:none}.on .txt span{display:block}.item{padding:10px 14px}}
+@media (min-width:820px) and (max-height:590px){.left h1{margin-top:clamp(0px,100dvh - 460px,75px)}.tagline{display:none}.ico{height:28px}.on .txt span{display:none}.list{margin-top:12px}.item{padding:5px 14px}}
+
+/* ---- phone: Stories ---- */
+@media (max-width:819px){
+  /* A phone reports insets only when the page runs behind its clock and swipe bar. */
+  :root{--safe-t:max(16px,env(safe-area-inset-top));--safe-b:max(16px,env(safe-area-inset-bottom))}
+  body{background:#121212}
+  .left,.bar{display:none}.phone{display:block}
+  .site{position:relative;display:flex;flex-direction:column;gap:0;padding:var(--safe-t) 8px var(--safe-b)}
+  .stage{position:absolute;inset:0;border-radius:0}
+  /* Keeps the white text readable over the light colors. */
+  .backgrounds::after{content:"";background:linear-gradient(180deg,#000c 0,#0009 20%,#0003 34%,#0000 60%)}
+  .top{position:relative;z-index:8;padding:0 8px;color:#fff;pointer-events:none}
+  .segs{display:flex;gap:4px;margin-bottom:6px}
+  .segs i{flex:1;height:4px;border-radius:2px;background:#ffffff4d;overflow:hidden}
+  .segs i::after{content:"";display:block;height:100%;background:#fff;transform-origin:left;transform:scaleX(0)}
+  .segs i.done::after{transform:none}.segs i.on::after{transform:scaleX(var(--p))}
+  .name{display:flex;align-items:center;min-height:52px;gap:9px;font-size:24px;font-weight:700;letter-spacing:-.02em}
+  .top h2{font-size:22px;line-height:1.2;font-weight:700;letter-spacing:-.015em;margin-top:8px}
+  .top p{font:400 14px/1.5 var(--read);color:#ffffffd9;margin-top:6px;text-wrap:pretty}
+  .pause{top:calc(var(--safe-t) + 14px);right:12px;z-index:9;padding:0;width:44px;height:44px;justify-content:center;border-radius:22px;background:#fff2}.pause span{display:none}
+  .view{top:calc(var(--safe-t) + 148px);bottom:calc(var(--safe-b) + 112px);overflow:hidden;-webkit-mask:linear-gradient(#0000,#000 14px calc(100% - 14px),#0000);mask:linear-gradient(#0000,#000 14px calc(100% - 14px),#0000)}
+  .taps{position:absolute;inset:calc(var(--safe-t) + 70px) 0 calc(var(--safe-b) + 108px);z-index:4;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .taps i{position:absolute;inset:0 50% 0 0;background:linear-gradient(90deg,#fff5,#fff0 60%);opacity:0;animation:side .45s}.taps i.right{inset:0 0 0 50%;background:linear-gradient(270deg,#fff5,#fff0 60%)}
+  @keyframes side{from{opacity:1}to{opacity:0}}
+  .foot{position:relative;z-index:8;margin-top:auto}
+  .steps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .steps button{display:flex;align-items:center;gap:14px;min-height:60px;padding:8px 18px;border-radius:20px;background:#0b0b0bc9;backdrop-filter:blur(14px);color:#fff;font-size:17px;font-weight:600;text-align:left;transition:background .15s,transform .15s}
+  .steps .next{justify-content:flex-end;text-align:right}
+  .steps button:active{background:#000;transform:scale(.98)}
+  .steps small{display:block;font-size:12.5px;font-weight:400;color:#ffffffbf}
+  .free{display:grid;place-items:center;min-height:40px;border-radius:99px;background:#0b0b0bc9;backdrop-filter:blur(14px);color:#fff;font-size:15px;font-weight:500;text-align:center}
+  .hint{display:grid;grid-template-columns:1fr 1fr;position:absolute;inset:0;z-index:20;background:#000c;color:#fffc;text-align:center;font-size:17px;cursor:pointer}
+  .hint>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .hint>div+div{border-left:2px dashed #fff5}
+  .hint b{font-size:20px;color:#fff}
+  .hint i{position:relative;width:64px;height:64px;margin-bottom:18px;border-radius:50%;border:2px solid var(--yellow);display:grid;place-items:center}
+  .hint i::before{content:"";width:16px;height:16px;border:solid var(--yellow);border-width:4px 4px 0 0;transform:translateX(-3px) rotate(45deg)}
+  .hint .prev i::before{transform:translateX(3px) rotate(225deg)}
+  .hint i::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--yellow);animation:pulse 1.4s infinite}.hint div+div i::after{animation-delay:.7s}
+  @keyframes pulse{from{transform:none;opacity:1}to{transform:scale(1.7);opacity:0}}
+}
+@media (max-width:819px) and (max-height:620px){
+  .top p{display:none}.top h2{margin-top:2px}
+  .view{top:calc(var(--safe-t) + 100px);bottom:calc(var(--safe-b) + 98px)}
+  .steps button{min-height:52px}.steps{margin-bottom:6px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01s!important;animation:none!important}.win .drawer li{opacity:1}}

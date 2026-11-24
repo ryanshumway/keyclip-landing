@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>KeyClip landing prototype</title><style>
+*{box-sizing:border-box;margin:0}body{height:100vh;overflow:hidden;display:flex;flex-direction:column;background:#8b8b8b;font:13px system-ui}
+nav{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:8px 14px;background:#1b1b1b;color:#ddd}nav button,nav select{font:inherit;border:0;border-radius:7px;padding:7px 12px;background:#333;color:#eee;cursor:pointer}nav button.on{background:#FFD000;color:#000;font-weight:600}nav div{display:flex;gap:5px;align-items:center}label{color:#aaa;display:flex;gap:6px;align-items:center}
+.fr{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden}.dev{position:relative;width:100%;height:100%}iframe{border:0;background:#fff;width:100%;height:100%;border-radius:6px}
+body:not(.phone) .p-only,body.phone .d-only{display:none!important}
+.os,.safari{display:none}
+.phone .dev{width:390px;height:844px;border-radius:54px;box-shadow:0 0 0 11px #111;overflow:hidden;background:#121212;transform:scale(var(--k,1));flex:none}.phone iframe{border-radius:0}
+.phone .os{display:block;position:absolute;pointer-events:none;color:#fff;z-index:3}.time{left:48px;top:19px;font:600 17px system-ui}.isl{left:50%;top:12px;width:124px;height:36px;margin-left:-62px;border-radius:18px;background:#000}.sig{right:30px;top:22px}.ind{left:50%;bottom:8px;width:138px;height:5px;margin-left:-69px;border-radius:3px;background:#fff}
+.phone.saf iframe{position:absolute;left:0;top:54px;height:706px}.phone.saf .safari{display:grid;position:absolute;left:0;right:0;bottom:0;height:84px;background:#1c1c1e;color:#fff;justify-items:center;padding-top:8px}.safari span{width:350px;height:42px;border-radius:21px;background:#333;display:grid;place-items:center}
+.saf </style></head><body><nav><div id="d"><button data-d="desktop">Desktop</button><button data-d="phone">Phone</button></div>
+<label class="p-only">Layout <select id="mobile"><option value="stories">Stories</option><option value="list">List (fallback)</option></select></label>
+<label class="p-only">Seen in <select id="chrome"><option value="saf">Safari</option><option value="full">Full screen, behind the clock</option></select></label>
+<label class="p-only">Background <select id="look"><option value="feature">Color per Feature</option><option value="retro">Retro pixel art</option></select></label>
+<label>Speed <select id="speed"><option value="1">¾ (your pick)</option><option value="1.3333">Original</option><option value="0.8">Slower</option></select></label>
+<div class="p-only"><button id="hint">Replay tap hint</button></div></nav>
+<div class="fr"><div class="dev"><iframe src="site.html" title="Prototype"></iframe><i class="os isl"></i><b class="os time">9:41</b>
+<svg class="os sig" width="76" height="14" viewBox="0 0 76 14" fill="#fff"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="7" width="3" height="6" rx="1"/><rect x="10" y="4" width="3" height="9" rx="1"/><rect x="15" y="1" width="3" height="12" rx="1"/><path d="M33 3.2c2.600 0 5 1 6.800 2.700l-1.600 1.700A7.500 7.500 0 0 0 33 5.600a7.500 7.500 0 0 0-5.200 2L26.200 5.900A9.800 9.800 0 0 1 33 3.200Zm0 4.600c1.300 0 2.600.5 3.500 1.400L33 12.800l-3.500-3.600A5 5 0 0 1 33 7.800Z"/><rect x="48.500" y=".5" width="23" height="12" rx="3.500" fill="none" stroke="#fff" opacity=".5"/><rect x="50" y="2" width="20" height="9" rx="2"/><rect x="73" y="4.500" width="1.500" height="4" rx=".7" opacity=".5"/></svg>
+<div class="safari"><span>keyclip.video</span></div><i class="os ind"></i></div></div><script>
+const f=document.querySelector('iframe'),$=i=>document.getElementById(i),B=document.body,keys=['mobile','look','speed'];
+const send=o=>f.contentWindow.postMessage(o||{...Object.fromEntries(keys.map(k=>[k,$(k).value])),safe:$('chrome').value},'*');
+const size=()=>{const r=document.querySelector('.fr').getBoundingClientRect();B.style.setProperty('--k',Math.min(1,(r.height-28)/866))};
+const setD=d=>{B.classList.toggle('phone',d==='phone');document.querySelectorAll('[data-d]').forEach(b=>b.classList.toggle('on',b.dataset.d===d));size();if(d==='phone')setTimeout(()=>send({go:0,hint:1}),150);else send({go:0})};
+document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>setD(b.dataset.d));keys.forEach(k=>$(k).onchange=()=>send());
+const chrome=()=>{B.classList.toggle('saf',$('chrome').value==='saf');send()};$('chrome').onchange=chrome;$('hint').onclick=()=>send({hint:1});addEventListener('resize',size);
+const u=new URLSearchParams(location.search);for(const k of['chrome','look','mobile'])if(u.get(k))$(k).value=u.get(k);f.onload=()=>{chrome();setD(u.get('d')||'desktop')};
+</script></body></html>
